@@ -31,7 +31,7 @@ const char *startWord;
 
 //int letterValue[10] = {-3,1,0,0,-1,3};
 
-int letterValue[MAXDEGREE];
+int letterValue[2*MAXDEGREE];
 
 int groupOrder;
 
