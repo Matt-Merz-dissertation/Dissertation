@@ -1,7 +1,8 @@
-/*
-** This is a program written by Matthias Merzenich to search for spherical
-** pictures over certain relative group presentations.
-*/
+/*****************************************************************************/
+/*   This is a program written by Matthias Merzenich to search for reduced   */
+/*   spherical pictures over certain 1-generator, 1-relator relative group   */
+/*   presentations.                                                          */
+/*****************************************************************************/
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1078,21 +1079,23 @@ void echoParams(){
    printf("Coefficient group order: %d\n", groupOrder);
    printf("Degree: %d\n", degree);
    
-   printf("theWordType: ");
+   printf("Relator shape: ");
    for(i = degree - 1; i >= 0; i--){
       putchar((theWordType & (1 << i)) ? 'x' : 'X');
    }
    printf("\n");
    
    
-   printf("Exponents: ");
-   for(i = 0; i < degree; i++){
-      printf("%d ",letterValue[i]);
+   printf("Coefficient exponents: ");
+   for(i = degree; i < 2*degree; i++){
+      printf("%d ",-letterValue[i]);
    }
    printf("\n");
    
-   printf("Start Word: %s\n",startWord);
-   printf("Symmetry Type: %d\n", symmetryType);
+   printf("Symmetry degree: %d\n", symmetryType);
+   printf("Starting word: %s",startWord);
+   if(symmetryType > 1) printf(" (x%d)\n",symmetryType);
+   else printf("\n");
    
    printf("\n");
 }
@@ -1203,9 +1206,9 @@ int main(int argc, char *argv[]){
       printf("       shape RR specified as a string consisting of \'x\' and \'X\', where \n");
       printf("       \'X\' represents x^-1. For example, the relator xaxbx^(-1)c is\n");
       printf("       specified by xxX.\n");
-      printf("-o NN  specifies the order of the coefficient group to NN\n");
+      printf("-o NN  Sets the order of the coefficient group to NN\n");
       printf("-e LL  LL is a space-separated list specifying the exponent values of\n");
-      printf("       the coefficient elements in the relator\n");
+      printf("       the coefficient elements in the relator (-r must be set first)\n");
       printf("\n");
       printf("-v NN  Searches for pictures with at most NN vertices (default: 2^20)\n");
       printf("-f NN  Searches for pictures with at most NN faces (default: 2^20)\n");
