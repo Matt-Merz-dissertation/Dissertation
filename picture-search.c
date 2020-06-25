@@ -1,22 +1,40 @@
+/*
+** This is a program written by Matthias Merzenich to search for spherical
+** pictures over certain relative group presentations.
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
 #define P_MAXVERTS 0
-#define P_MAXSTEPS 1
+#define P_MAXFACES 1
 #define P_MAXNEWVERTS 2
-#define P_MAXFACESIZE 3
-#define P_MAXFREEEDGES 4
-#define P_NUMPICS 5
-#define P_OUTFREQ 6
+#define P_MAXHALFEDGES 3
+#define P_GROUPORDER 4
+#define P_DEGREE 5
+#define P_SYMMETRYTYPE 6
+#define P_NUMPICS 7
+#define P_OUTFREQ 8
+#define P_OUTLARGEST 9
 
-#define NUM_PARAMS 7
+#define NUM_PARAMS 10
 
-int letterValue[10] = {-3,1,0,0,-1,3};
+#define MAXDEGREE 10
 
-int groupOrder = 9;
+//#define TABLE_DEBUG
 
+const char *wordType;
+const char *startWord;
+
+//int letterValue[10] = {-3,1,0,0,-1,3};
+
+int letterValue[MAXDEGREE];
+
+int groupOrder;
+
+int symmetryType;
 
 int degree;
 
@@ -188,7 +206,7 @@ int getVertexNumber(vertex* theVertex){
    return c;
 }
 
-int theWord;
+int theWordType;
 
 int* coeffInit;
 int* coeffTerm;
@@ -210,30 +228,34 @@ void buildFollow(){
    
    // The following is for words of the form xaxbxcxd...
    for(i = 1; i < degree; ++i){
-      coeffTerm[i] = (((theWord >> (i - 1)) & 1) ? 0 : 1);
+      coeffTerm[i] = (((theWordType >> (i - 1)) & 1) ? 0 : 1);
    }
    for(i = 0; i < degree; ++i){
-      coeffInit[i] = (((theWord >> i) & 1) ? 1 : 0);
+      coeffInit[i] = (((theWordType >> i) & 1) ? 1 : 0);
    }
-   coeffTerm[0] = (((theWord >> (degree - 1)) & 1) ? 0 : 1);
+   coeffTerm[0] = (((theWordType >> (degree - 1)) & 1) ? 0 : 1);
    
    for(i = 0; i < degree - 1; ++i){
-      coeffInit[i + degree] = ((theWord >> ((degree - 2 - i)) & 1) ? 0 : 1);
+      coeffInit[i + degree] = ((theWordType >> ((degree - 2 - i)) & 1) ? 0 : 1);
    }
    for(i = 0; i < degree; ++i){
-      coeffTerm[i + degree] = ((theWord >> ((degree - 1 - i)) & 1) ? 1 : 0);
+      coeffTerm[i + degree] = ((theWordType >> ((degree - 1 - i)) & 1) ? 1 : 0);
    }
-   coeffInit[2*degree - 1] = (((theWord >> (degree - 1)) & 1) ? 0 : 1);
+   coeffInit[2*degree - 1] = (((theWordType >> (degree - 1)) & 1) ? 0 : 1);
    
    for(i = 0; i < 2*degree; ++i){
       for(j = 0; j < 2*degree; ++j){
          if(coeffTerm[i] == coeffInit[j] && i != 2*degree - 1 - j) canFollow[i][j] = 1;
          else canFollow[i][j] = 0;
          
+#ifdef TABLE_DEBUG
          printf("%c %c %d   ",letterFromOrient(i),letterFromOrient(j),canFollow[i][j]);
+#endif
          
       }
+#ifdef TABLE_DEBUG
       printf("\n");
+#endif
    }
 }
 
@@ -259,15 +281,21 @@ void buildStarGraph(){
       starGraph[i].nextEdge = starEdges + i * (degree - 1);
    }
    
+#ifdef TABLE_DEBUG
    printf("\n\n");
+#endif
    
    for(i = 0; i < 2*degree; ++i){
       for(j = 0; j < 2*degree; ++j){
          
+#ifdef TABLE_DEBUG
          printf("%c %c %d   ",letterFromOrient(i),letterFromOrient(j),canFollow[i][j]);
+#endif
          
       }
+#ifdef TABLE_DEBUG
       printf("\n");
+#endif
    }
    for(i = 0; i < 2*degree; ++i){
       c = 0;
@@ -276,12 +304,16 @@ void buildStarGraph(){
          if(canFollow[i][j]){
             starGraph[i].nextEdge[c] = starGraph + j;
             nextEdgeValue[i][j] = c;
+            
+#ifdef TABLE_DEBUG
             printf("%d  %d  %d\n",i,j,c);
+#endif
             ++c;
          }
       }
    }
    
+#ifdef TABLE_DEBUG
    for(i = 0; i < 2*degree; ++i){
       printf("%c:  ",letterFromOrient(starGraph[i].orientation));
       for(j = 0; j < degree - 1; ++j){
@@ -291,6 +323,7 @@ void buildStarGraph(){
       printf("\n");
       fflush(stdout);
    }
+#endif
    
 }
 
@@ -383,10 +416,13 @@ void buildTables2(){
    
    i = -1;
    
+#ifdef TABLE_DEBUG
    printf("corner values:\n");
    for(j = 0; j < 2*degree; ++j){
       printf("%c: %d\n",letterFromOrient(j), letterValue[j]);
    }
+#endif
+   
    for(cornerSum = 0; cornerSum < groupOrder; ++cornerSum){
       for(startSymb = 0; startSymb < 2*degree; ++startSymb){
          for(endSymb = 0; endSymb < 2*degree; ++endSymb){
@@ -1028,41 +1064,173 @@ void printSymmGraph(int firstFaceSize, int n){
    fflush(stdout);
 }
 
+void echoParams(){
+   
+   int i;
+   
+   printf("Max vertices: %d\n", params[P_MAXVERTS]);
+   printf("Max faces: %d\n", params[P_MAXFACES]);
+   printf("Max new vertice: %d\n", params[P_MAXNEWVERTS]);
+   printf("Max half edges: %d\n", params[P_MAXHALFEDGES]);
+   printf("Num pictures: %d\n", params[P_NUMPICS]);
+   printf("Output frequency: %d\n", params[P_OUTFREQ]);
+   if(params[P_OUTLARGEST]) printf("Print largest partial picture\n");
+   printf("Coefficient group order: %d\n", groupOrder);
+   printf("Degree: %d\n", degree);
+   
+   printf("theWordType: ");
+   for(i = degree - 1; i >= 0; i--){
+      putchar((theWordType & (1 << i)) ? 'x' : 'X');
+   }
+   printf("\n");
+   
+   
+   printf("Exponents: ");
+   for(i = 0; i < degree; i++){
+      printf("%d ",letterValue[i]);
+   }
+   printf("\n");
+   
+   printf("Start Word: %s\n",startWord);
+   printf("Symmetry Type: %d\n", symmetryType);
+   
+   printf("\n");
+}
+
+int gcd(int a, int b) {
+   if (a > b) return gcd(b,a);
+   else if (a == 0) return b;
+   else return gcd(b-a,a);
+}
 
 int main(int argc, char *argv[]){
    
-   printf("Test Program\n");
+   long long int i;
+   
+   for (i = 0; i < argc; i++)
+      printf(" %s", argv[i]) ;
+   printf("\n\n");
    
    params[P_MAXVERTS] = 1 << 20;
-   params[P_MAXSTEPS] = 1000;
-   params[P_MAXNEWVERTS] = 5;
-   params[P_MAXFREEEDGES] = 27;
+   params[P_MAXFACES] = 1 << 20;
+   params[P_MAXNEWVERTS] = 0;
+   params[P_MAXHALFEDGES] = 0;
    params[P_NUMPICS] = 1;
    params[P_OUTFREQ] = 26;
-   params[P_MAXFACESIZE] = 6;
+   params[P_OUTLARGEST] = 0;
    
    totalFreeEdges = 0;
    
    degree = 3;
-   theWord = 0b110;
+   theWordType = 0b110;
    
    
    int s;
    
    int j;
    
-   long long int i;
    
-   for(s = 1; s < argc; s++){
-      switch(argv[s][0]){
-         case 'v': case 'V': sscanf(&argv[s][1], "%d", &params[P_MAXVERTS]); break;
-         case 's': case 'S': sscanf(&argv[s][1], "%d", &params[P_MAXSTEPS]); break;
-         case 'f': case 'F': sscanf(&argv[s][1], "%d", &params[P_MAXNEWVERTS]); break;
-         case 'e': case 'E': sscanf(&argv[s][1], "%d", &params[P_MAXFREEEDGES]); break;
-         case 'p': case 'P': sscanf(&argv[s][1], "%d", &params[P_NUMPICS]); break;
-         case 'o': case 'O': sscanf(&argv[s][1], "%d", &params[P_OUTFREQ]); break;
+   
+   
+   if (argc > 1) while(--argc > 0) {
+      if ((*++argv)[0] == '-'){
+        switch ((*argv)[1]) {
+           case 'v': case 'V':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_MAXVERTS]);
+              break;
+           case 'n': case 'N':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_MAXNEWVERTS]);
+              break;
+           case 'h': case 'H':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_MAXHALFEDGES]);
+              break;
+           case 'f': case 'F':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_MAXFACES]);
+              break;
+           case 'p': case 'P':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_NUMPICS]);
+              break;
+           case 'q': case 'Q':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_OUTFREQ]);
+              break;
+           case 'o': case 'O':
+              --argc;
+              sscanf(*++argv, "%d", &params[P_GROUPORDER]);
+              groupOrder = params[P_GROUPORDER];
+              break;
+           case 'w': case 'W':
+              --argc;
+              startWord = *++argv;
+              break;
+           case 'r': case 'R':
+              --argc;
+              wordType = *++argv;
+              params[P_DEGREE] = strlen(wordType);
+              degree = params[P_DEGREE];
+              for(i = 0; i < degree; i++){
+                 theWordType |= ((wordType[i] == 'x') ? 1 : 0) << (degree - i - 1);
+              }
+              break;
+           case 'e': case 'E':
+              for(i = 0; i < degree; i++){
+                 --argc;
+                 sscanf(*++argv, "%d", &letterValue[degree - i - 1]);
+              }
+              for(i = 0; i < degree; i++){
+                 letterValue[degree + i] = -letterValue[degree - i - 1];
+              }
+              break;
+           case 'l': case 'L':
+              params[P_OUTLARGEST] = 1;
+              break;
+           default:
+              printf("Unrecognized option %s\n", *argv);
+              exit(1);
+        }
       }
    }
+   else{
+      printf("This is a program for finding reduced spherical pictures over certain\n");
+      printf("relative presentations. Input options are as follows:\n");
+      printf("\n");
+      printf("-r RR  Searches for pictures over a relative presentation with relator\n");
+      printf("       shape RR specified as a string consisting of \'x\' and \'X\', where \n");
+      printf("       \'X\' represents x^-1. For example, the relator xaxbx^(-1)c is\n");
+      printf("       specified by xxX.\n");
+      printf("-o NN  specifies the order of the coefficient group to NN\n");
+      printf("-e LL  LL is a space-separated list specifying the exponent values of\n");
+      printf("       the coefficient elements in the relator\n");
+      printf("\n");
+      printf("-v NN  Searches for pictures with at most NN vertices (default: 2^20)\n");
+      printf("-f NN  Searches for pictures with at most NN faces (default: 2^20)\n");
+      printf("\n");
+      printf("-n NN  Add no more than NN vertices when creating a new face\n");
+      printf("-h NN  Limit the number of half edges at any step to NN\n");
+      printf("\n");
+      printf("-p NN  Output up to NN complete spherical pictures (default: 1)\n");
+      printf("-q NN  Output the current search state every 2^NN steps (default: 26)\n");
+      printf("-l     Output the current search state when a new largest picture occurs\n");
+      exit(0);
+   }
+
+   
+   symmetryType = 0;
+   for(i = 0; i < strlen(startWord); i++){
+      symmetryType += letterValue[orientFromLetter(startWord[i])];
+   }
+   symmetryType = symmetryType % groupOrder;
+   if(symmetryType < 0) symmetryType += groupOrder;
+   symmetryType = groupOrder / gcd(groupOrder,symmetryType);
+   params[P_SYMMETRYTYPE] = symmetryType;
+   
+   echoParams();
+   //return 0;
    
    verts = malloc(params[P_MAXVERTS]*sizeof(*verts));
    
@@ -1076,65 +1244,40 @@ int main(int argc, char *argv[]){
    top = verts - 1;
    bottom = verts;
    
-   numAddedVerts = malloc((params[P_MAXSTEPS] + 5)*sizeof(*numAddedVerts));
+   numAddedVerts = malloc((params[P_MAXFACES] + 5)*sizeof(*numAddedVerts));
    
    buildFollow();
    buildStarGraph();
    
+   for(i = 0; i < strlen(startWord) - 1; i++){
+      if(!canFollow[orientFromLetter(startWord[i])][orientFromLetter(startWord[i+1])]){
+         printf("Error: start word is invalid.\n");
+         exit(0);
+      }
+   }
+   
+   if(!canFollow[orientFromLetter(startWord[strlen(startWord) - 1])][orientFromLetter(startWord[0])]){
+      printf("Error: start word is invalid.\n");
+      exit(0);
+   }
+   
+   
    buildTables2();
    
    
-   currentPic = malloc((params[P_MAXSTEPS] + 5)*sizeof(*currentPic));
+   currentPic = malloc((params[P_MAXFACES] + 5)*sizeof(*currentPic));
    
-   startPath = malloc((params[P_MAXSTEPS] + 5)*sizeof(*startPath));
-   startPathLength = malloc((params[P_MAXSTEPS] + 5)*sizeof(*startPathLength));
-   startIndex = malloc((params[P_MAXSTEPS] + 5)*sizeof(*startIndex));
-   pathsRemaining = malloc((params[P_MAXSTEPS] + 5)*sizeof(*pathsRemaining));
+   startPath = malloc((params[P_MAXFACES] + 5)*sizeof(*startPath));
+   startPathLength = malloc((params[P_MAXFACES] + 5)*sizeof(*startPathLength));
+   startIndex = malloc((params[P_MAXFACES] + 5)*sizeof(*startIndex));
+   pathsRemaining = malloc((params[P_MAXFACES] + 5)*sizeof(*pathsRemaining));
    
-   extraFace = calloc(params[P_MAXSTEPS] + 5,sizeof(*extraFace));
-   onlyOneEdge = calloc(params[P_MAXSTEPS] + 5,sizeof(*onlyOneEdge));
+   extraFace = calloc(params[P_MAXFACES] + 5,sizeof(*extraFace));
+   onlyOneEdge = calloc(params[P_MAXFACES] + 5,sizeof(*onlyOneEdge));
    
-   
-   
-   
-   
-   
-   
-   
-   
-   int theLength, theFirstOrient, theLastOrient, sum;
-   
-   starEdge* x;
-   
-   long long int c;
-   
-   uint32_t thePath;
-   
-   search(orientFromLetter('B'),0,0);
+   search();
    
    return 0;
-   
-   for(theLength = 7; theLength <= 7; theLength++){
-      for(theFirstOrient = 0; theFirstOrient < 2*degree; theFirstOrient++){
-         for(thePath = 0; thePath < myPow(degree - 1, theLength); ++thePath){
-            sum = letterValue[theFirstOrient];
-            x = starGraph + theFirstOrient;
-            
-            for(i = 0; i < theLength; ++i){
-               c = ((long long int)thePath / myPow(degree - 1,i)) % (degree - 1);
-               x = x->nextEdge[c];
-               
-               sum += letterValue[x->orientation];
-            }
-            
-            if(canFollow[x->orientation][theFirstOrient] && sum % groupOrder == 0){
-               search(theFirstOrient, thePath, theLength);
-               for(i = 0; i <= theLength; i++) pop();
-            }
-         }
-      }
-         
-   }
    
 }
 
@@ -1147,38 +1290,14 @@ void getTheStartPath(int step){
 }
 
 
-int search(int startingOrient, uint32_t startingPath, int startingLength){
+int search(){
    
    int j;
-   
    long long int i, c;
    
-   starEdge* x = starGraph + startingOrient;
-   
-   for(i = 0; i < startingLength; ++i){
-      c = ((long long int)startingPath / myPow(degree - 1,i)) % (degree - 1);
-      x = x->nextEdge[c];
-      
-      push(x->orientation);
+   for(i = 0; i < strlen(startWord); i++){
+      push(orientFromLetter(startWord[i]));
    }
-   
-   printf("The starting word: ");
-   printWordFromPath(startingOrient, startingPath, startingLength);
-   printf("\n\n");
-   
-   int symmetryType = 9;
-   
-   push(orientFromLetter('B'));
-
-   printf("  %d\n\n",bottom->orient);
-   
-   printf("  %d\n\n",getCornerOrient(bottom,0));
-   
-   printf("%d %d\n",getOrientFromCorner(corners + 7),getOrientFromCorner(corners + 0));
-   
-   printf("%c %c\n",letterFromOrient(getOrientFromCorner(corners + 7)),letterFromOrient(getOrientFromCorner(corners + 0)));
-   
-   printVerts();
    
    int initialNumberOfVerts = top - bottom + 1;
 
@@ -1190,7 +1309,7 @@ int search(int startingOrient, uint32_t startingPath, int startingLength){
    long long int calcs;
    
    startPath[step] = getCurrentStartPath();
-   printf("startPath: %d\n",startPath[step]);
+//   printf("startPath: %d\n",startPath[step]);
    
    startIndex[step] = newPathInd[startPath[step] + 1];
    pathsRemaining[step] = startIndex[step] - newPathInd[startPath[step]] + 1;
@@ -1202,34 +1321,26 @@ int search(int startingOrient, uint32_t startingPath, int startingLength){
    long long int freeEdgeError = 0;
    long long int stepError = 0;
    
+   printf("Beginning search\n");
+   
    for(;;){
       ++calcs;
       
-      if(!(calcs & ((1 << params[P_OUTFREQ]) - 1)) || step > biggestPicture + 20){
-         printVerts();
+      if(!(calcs & ((1 << params[P_OUTFREQ]) - 1)) || (step > biggestPicture && params[P_OUTLARGEST])){
+//         printVerts();
          printf("max free edges exceeded: %lli\n",freeEdgeError);
          printf("max steps exceeded: %lli\n",stepError);
          printf("current step: %d\n",step);
          printPicture(initialNumberOfVerts,symmetryType,0);
-         printf("totalFreeEdges: %d\n",totalFreeEdges);
-         printf("getNumberOfUnseenEdges: %d\n",getNumberOfUnseenEdges());
+         printf("Number of half edges: %d\n",getNumberOfUnseenEdges());
          printf("Largest Partial: %d faces\n",biggestPicture);
          fflush(stdout);
          
-         if(!(calcs & (((long long int)1 << 33) - 1))){
-            
-            printf("\n");
-            printWordFromPath(startingOrient, startingPath, startingLength);
-            printf("\n\n");
-            
-            printPicture(initialNumberOfVerts,symmetryType,0);
-            
-            printSymmGraph(startingLength + 1,symmetryType);
-            
-            fflush(stdout);
-            
-            
-         }
+//         if(!(calcs & (((long long int)1 << 33) - 1))){
+//            printPicture(initialNumberOfVerts,symmetryType,0);
+//            printSymmGraph(strlen(startWord) + 1,symmetryType);
+//            fflush(stdout);
+//         }
          
          if(step > biggestPicture) biggestPicture = step;
          
@@ -1268,12 +1379,12 @@ int search(int startingOrient, uint32_t startingPath, int startingLength){
       newPath = newPaths[startIndex[step] - pathsRemaining[step]];
       
       
-      if(getNumberOfUnseenEdges() + newLength*(degree - 2) > params[P_MAXFREEEDGES]){
+      if(getNumberOfUnseenEdges() + newLength*(degree - 2) > params[P_MAXHALFEDGES]){
          ++freeEdgeError;
          continue;
       }
       
-      if(step + (newLength*(degree - 2) + getNumberOfUnseenEdges())/ 2 - 2 > params[P_MAXSTEPS]){
+      if(step + (newLength*(degree - 2) + getNumberOfUnseenEdges())/ 2 - 2 > params[P_MAXFACES]){
          ++stepError;
          continue;
       }
@@ -1286,12 +1397,9 @@ int search(int startingOrient, uint32_t startingPath, int startingLength){
       ++step;
       
       if(getNumberOfUnseenEdges() == 0){
-         printVerts();
+//         printVerts();
          printf("found!\n\n");
          
-         printf("\n");
-         printWordFromPath(startingOrient, startingPath, startingLength);
-         printf("\n\n");
          
          printPicture(initialNumberOfVerts,symmetryType,1);
 //         printSymmGraph(initialNumberOfVerts,symmetryType);
